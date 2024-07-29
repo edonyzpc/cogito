@@ -1,4 +1,4 @@
-package main
+package moonshot
 
 import (
 	"bytes"

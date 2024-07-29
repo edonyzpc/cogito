@@ -10,46 +10,70 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/spf13/cobra"
+
+	"github.com/edonyzpc/cogito/pkg/cogito"
+	"github.com/edonyzpc/cogito/pkg/moonshot"
+	"github.com/edonyzpc/cogito/pkg/translate"
 )
 
-type Cogito struct {
-	baseUrl string
-	key     string
-	client  *http.Client
-	log     func(ctx context.Context, caller string, request *http.Request, response *http.Response, elapse time.Duration)
+var (
+	rootCmd = &cobra.Command{
+		Use:   "cogito",
+		Short: "A brief description of your application",
+		Long:  `A longer description that spans multiple lines.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			cmd.Help()
+		},
+	}
+	translateCmd = &cobra.Command{
+		Use:   "translate",
+		Short: "translate file",
+		Long:  `translate file`,
+		Run: func(cmd *cobra.Command, args []string) {
+			if err := translate.Translate(translateFilePath); err != nil {
+				log.Fatalln(err)
+			}
+		},
+	}
+	translateFilePath string
+	apiKey            string
+)
+
+func init() {
+	rootCmd.Flags().StringVar(&apiKey, "api", "", "api key to access the LLMs")
+
+	translateCmd.Flags().StringVarP(&translateFilePath, "filepath", "f", "", "full file path name to be translated by cogito")
+	translateCmd.MarkFlagRequired("filepath")
+
+	rootCmd.AddCommand(translateCmd)
 }
 
-func (m *Cogito) BaseUrl() string      { return m.baseUrl }
-func (m *Cogito) Key() string          { return m.key }
-func (m *Cogito) Client() *http.Client { return m.client }
-func (m *Cogito) Log(ctx context.Context, caller string, request *http.Request, response *http.Response, elapse time.Duration) {
-	m.log(ctx, caller, request, response, elapse)
-}
-
-func runDemo() error {
+func RunDemo() error {
 	ctx := context.Background()
 
-	client := NewClient[*Cogito](&Cogito{
-		baseUrl: "https://api.moonshot.cn/v1",
-		key:     os.Getenv("MOONSHOT_API_KEY"),
-		client:  http.DefaultClient,
-		log: func(ctx context.Context, caller string, request *http.Request, response *http.Response, elapse time.Duration) {
+	client := moonshot.NewClient[*cogito.Cogito](&cogito.Cogito{
+		URL:        "https://api.moonshot.cn/v1",
+		APIKey:     os.Getenv("MOONSHOT_API_KEY"),
+		HTTPClient: http.DefaultClient,
+		Logger: func(ctx context.Context, caller string, request *http.Request, response *http.Response, elapse time.Duration) {
 			log.Printf("[%s] %s %s", caller, request.URL, elapse)
 		},
 	})
 
-	estimateTokenCount, err := client.EstimateTokenCount(ctx, &EstimateTokenCountRequest{
-		Messages: []*Message{
+	estimateTokenCount, err := client.EstimateTokenCount(ctx, &moonshot.EstimateTokenCountRequest{
+		Messages: []*moonshot.Message{
 			{
-				Role:    RoleSystem,
-				Content: &Content{Text: "你是 Kimi，由 Moonshot AI 提供的人工智能助手，你更擅长中文和英文的对话。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。Moonshot AI 为专有名词，不可翻译成其他语言。"},
+				Role:    moonshot.RoleSystem,
+				Content: &moonshot.Content{Text: "你是 Kimi，由 Moonshot AI 提供的人工智能助手，你更擅长中文和英文的对话。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。Moonshot AI 为专有名词，不可翻译成其他语言。"},
 			},
 			{
-				Role:    RoleUser,
-				Content: &Content{Text: "你好，我叫李雷，1+1等于多少？"},
+				Role:    moonshot.RoleUser,
+				Content: &moonshot.Content{Text: "你好，我叫李雷，1+1等于多少？"},
 			},
 		},
-		Model:       ModelMoonshot8K,
+		Model:       moonshot.ModelMoonshot8K,
 		MaxTokens:   4096,
 		N:           1,
 		Temperature: "0.3",
@@ -68,18 +92,18 @@ func runDemo() error {
 
 	log.Printf("balance=%s", balance.Data.AvailableBalance)
 
-	completion, err := client.CreateChatCompletion(ctx, &ChatCompletionRequest{
-		Messages: []*Message{
+	completion, err := client.CreateChatCompletion(ctx, &moonshot.ChatCompletionRequest{
+		Messages: []*moonshot.Message{
 			{
-				Role:    RoleSystem,
-				Content: &Content{Text: "你是 Kimi，由 Moonshot AI 提供的人工智能助手，你更擅长中文和英文的对话。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。Moonshot AI 为专有名词，不可翻译成其他语言。"},
+				Role:    moonshot.RoleSystem,
+				Content: &moonshot.Content{Text: "你是 Kimi，由 Moonshot AI 提供的人工智能助手，你更擅长中文和英文的对话。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。Moonshot AI 为专有名词，不可翻译成其他语言。"},
 			},
 			{
-				Role:    RoleUser,
-				Content: &Content{Text: "你好，我叫李雷，1+1等于多少？"},
+				Role:    moonshot.RoleUser,
+				Content: &moonshot.Content{Text: "你好，我叫李雷，1+1等于多少？"},
 			},
 		},
-		Model:       ModelMoonshot8K,
+		Model:       moonshot.ModelMoonshot8K,
 		MaxTokens:   4096,
 		N:           1,
 		Temperature: "0.3",
@@ -91,18 +115,18 @@ func runDemo() error {
 
 	fmt.Println(completion.GetMessageContent())
 
-	stream, err := client.CreateChatCompletionStream(ctx, &ChatCompletionStreamRequest{
-		Messages: []*Message{
+	stream, err := client.CreateChatCompletionStream(ctx, &moonshot.ChatCompletionStreamRequest{
+		Messages: []*moonshot.Message{
 			{
-				Role:    RoleSystem,
-				Content: &Content{Text: "你是 Kimi，由 Moonshot AI 提供的人工智能助手，你更擅长中文和英文的对话。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。Moonshot AI 为专有名词，不可翻译成其他语言。"},
+				Role:    moonshot.RoleSystem,
+				Content: &moonshot.Content{Text: "你是 Kimi，由 Moonshot AI 提供的人工智能助手，你更擅长中文和英文的对话。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。Moonshot AI 为专有名词，不可翻译成其他语言。"},
 			},
 			{
-				Role:    RoleUser,
-				Content: &Content{Text: "写一个小故事，讲的是一个叫“龙猫”的勇士积极抵抗魔族入侵，保卫 Kimi 女神。"},
+				Role:    moonshot.RoleUser,
+				Content: &moonshot.Content{Text: "写一个小故事，讲的是一个叫“龙猫”的勇士积极抵抗魔族入侵，保卫 Kimi 女神。"},
 			},
 		},
-		Model:       ModelMoonshot8K,
+		Model:       moonshot.ModelMoonshot8K,
 		MaxTokens:   4096,
 		N:           1,
 		Temperature: "0.3",
@@ -122,18 +146,18 @@ func runDemo() error {
 		return err
 	}
 
-	stream, err = client.CreateChatCompletionStream(ctx, &ChatCompletionStreamRequest{
-		Messages: []*Message{
+	stream, err = client.CreateChatCompletionStream(ctx, &moonshot.ChatCompletionStreamRequest{
+		Messages: []*moonshot.Message{
 			{
-				Role:    RoleSystem,
-				Content: &Content{Text: "你是 Kimi，由 Moonshot AI 提供的人工智能助手，你更擅长中文和英文的对话。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。Moonshot AI 为专有名词，不可翻译成其他语言。"},
+				Role:    moonshot.RoleSystem,
+				Content: &moonshot.Content{Text: "你是 Kimi，由 Moonshot AI 提供的人工智能助手，你更擅长中文和英文的对话。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。Moonshot AI 为专有名词，不可翻译成其他语言。"},
 			},
 			{
-				Role:    RoleUser,
-				Content: &Content{Text: "写一个小故事，讲的是有一个叫“龙猫”的人，每天会在各个群聊里游荡，挑选一些感兴趣的话题回复，每个群都以得到龙猫老师的回复为荣，请写一个跌宕起伏的剧情，讲述“龙猫”与各个群聊的爱恨情仇。"},
+				Role:    moonshot.RoleUser,
+				Content: &moonshot.Content{Text: "写一个小故事，讲的是有一个叫“龙猫”的人，每天会在各个群聊里游荡，挑选一些感兴趣的话题回复，每个群都以得到龙猫老师的回复为荣，请写一个跌宕起伏的剧情，讲述“龙猫”与各个群聊的爱恨情仇。"},
 			},
 		},
-		Model:       ModelMoonshot8K,
+		Model:       moonshot.ModelMoonshot8K,
 		MaxTokens:   4096,
 		N:           1,
 		Temperature: "0.3",
@@ -158,7 +182,7 @@ func runDemo() error {
 
 	defer pdf.Close()
 
-	file, err := client.UploadFile(ctx, &UploadFileRequest{
+	file, err := client.UploadFile(ctx, &moonshot.UploadFileRequest{
 		File:    pdf,
 		Purpose: "file-extract",
 	})
@@ -180,7 +204,12 @@ func runDemo() error {
 }
 
 func main() {
-	if err := runDemo(); err != nil {
+	/*
+		if err := RunDemo(); err != nil {
+			log.Fatalln(err)
+		}
+	*/
+	if err := rootCmd.Execute(); err != nil {
 		log.Fatalln(err)
 	}
 }
