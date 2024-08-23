@@ -1,0 +1,27 @@
+textual:
+  theme: dark
+
+api_config:
+  # Open AI
+  openai:
+    api_key: <your key>
+
+  # Google Gen AI APIs
+  google:
+    api_key: <your key>
+
+  # Anthropic API
+  anthropic:
+    api_key: <your key>
+
+  # SAP Gen AI Hub for enterprise scenarios
+  gen-ai-hub:
+    client_id: str
+    client_secret: str
+    auth_url: str
+    api_base: str
+    resource_group: str
+
+  # Qwen API
+  qwen:
+    api_key: <str>
