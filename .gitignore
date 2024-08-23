@@ -1,3 +1,17 @@
-vendor/
+# Test binary and data
+bin/*
+env/*
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info
+*.egg
+venv/
+
+# Project
+build/
 bin/
+dist/
