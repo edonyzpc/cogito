@@ -71,6 +71,7 @@ cogito = "cogito.textual_ui.app:run"
 
 [project.entry-points.cogito_function]
 google_web_search = "cogito.runtime.function_calling.functions:google_web_search"
+multiply = "cogito.runtime.function_calling.functions:multiply"
 
 [tool.setuptools.package-data]
 "*" = ["*.tcss"]

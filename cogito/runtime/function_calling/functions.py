@@ -56,3 +56,14 @@ async def google_web_search(query: str) -> str:
     result_json = resp.json()  # Get the response body as JSON
 
     return _process_search_results(result_json)
+
+
+@register_for_function_calling
+def multiply(a: int, b: int):
+    """Multiply two integers together.
+
+    Args:
+        a: First integer
+        b: Second integer
+    """
+    return a * b
