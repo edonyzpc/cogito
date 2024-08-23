@@ -93,7 +93,7 @@ class ChatList(Widget):
             )
             yield Static(
                 Text(
-                    "A LLM-based personal AI assistant in Obsidian.",
+                    "AI assistant in Obsidian.",
                     style=self.get_component_rich_style("app-subtitle"),
                 )
             )
