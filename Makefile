@@ -10,4 +10,4 @@ build-pypi: install-deps
 	${PYTHONCMD} -m build
 
 cogito:
-	${PYTHONCMD} -m main
+	. venv/bin/activate && ${PYTHONCMD} -m main
