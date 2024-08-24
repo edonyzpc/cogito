@@ -26,10 +26,9 @@ except ImportError:
     ChatAnthropic = None
 
 try:
-    from langchain_community.llms.tongyi import Tongyi as Qwen
+    from langchain_community.chat_models.tongyi import ChatTongyi
 except ImportError:
-    Qwen = None
-
+    ChatTongyi = None
 
 try:
     from gen_ai_hub.proxy.langchain.init_models import (
@@ -176,7 +175,11 @@ class QwenConfig(APIProviderConfig):
     }
 
     def create_model_instance(self, model_name: str, **kwargs) -> BaseLanguageModel:
-        return Qwen(model=model_name, dashscope_api_key=self.api_key, **kwargs)
+        return (
+            ChatTongyi(model=model_name, dashscope_api_key=self.api_key, **kwargs)
+            if ChatTongyi
+            else None
+        )
 
 
 class APIConfig(BaseModel):

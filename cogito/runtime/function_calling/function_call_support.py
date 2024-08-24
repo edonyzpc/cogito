@@ -156,7 +156,7 @@ _DEFAULT_FUNCTION_CALL_SUPPORT = {
         "gpt-4,gpt-4-turbo,gpt-35-turbo,gpt-35-turbo-16k,gpt-4-32k": FunctionCallSupport.OPENAI_FUNCTION
     },
     "openai": {"*": FunctionCallSupport.OPENAI_TOOL},
-    "qwen": {"*": FunctionCallSupport.OPENAI_FUNCTION},
+    "qwen": {"*": FunctionCallSupport.OPENAI_TOOL},
 }
 
 

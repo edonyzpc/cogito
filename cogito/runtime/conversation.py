@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 import json
 from typing import List
 import polars as pl
+from http import HTTPStatus
 
 from langchain_core.messages import (
     AIMessageChunk,
@@ -23,6 +24,7 @@ from langchain_core.messages import (
 from langchain_core.outputs import ChatGenerationChunk
 from langchain_core.language_models import BaseLanguageModel
 
+import dashscope
 
 from shortuuid import ShortUUID
 
@@ -33,6 +35,7 @@ from cogito.runtime.langchain.schema import (
 from cogito.runtime.function_calling import FunctionCallSupport
 from cogito.runtime.models import ModelRegistry, ChatModel
 from cogito.logging import logger
+from cogito.config.app_config import AppConfig
 
 
 @dataclass
@@ -239,6 +242,8 @@ class Conversation:
             if function_calling:
                 function_kwargs = function_calling.get_kwargs()
 
+            logger().info(function_kwargs)
+            logger().info(function_calling)
             if logger().getEffectiveLevel() <= logging.INFO:
                 log_msg = messages[-3:] if len(messages) >= 3 else [*messages]
                 log_msg.reverse()
@@ -588,6 +593,10 @@ Do not escape markdown as codeblocks using '`' chars.Messages will be rendered a
             return 0
 
         try:
+            if model_name.startswith("qwen"):
+                return [
+                    Conversation.__get_token_num_qwen(model_name, m) for m in messages
+                ]
             return [model.get_num_tokens_from_messages(messages=[m]) for m in messages]
         except Exception as ex:
             logger().error(
@@ -595,6 +604,19 @@ Do not escape markdown as codeblocks using '`' chars.Messages will be rendered a
             )
             # Cannot get exact token count...do very(!) rough estimation.
             return [int(len(m.content) / 3.5) for m in messages]
+
+    @staticmethod
+    def __get_token_num_qwen(model_name: str, messages: BaseMessage) -> int:
+
+        response = dashscope.Tokenization.call(
+            model=model_name,
+            messages=messages.json(),
+            api_key=AppConfig.get_instance().api_config.qwen.api_key,
+        )
+        if response.status_code == HTTPStatus.OK:
+            return len(response.output.token_ids)
+        else:
+            return 0
 
 
 Conversation.search_df = None
