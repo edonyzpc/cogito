@@ -3,8 +3,8 @@
 PYTHONCMD := python3.10
 
 install-deps:
-	pip install .
-	pip install '.[all]'
+	. venv/bin/activate && pip install .
+	. venv/bin/activate && pip install '.[all]'
 
 build-pypi: install-deps
 	${PYTHONCMD} -m build

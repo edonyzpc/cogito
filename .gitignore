@@ -2,6 +2,9 @@
 bin/*
 env/*
 
+# Go
+vendor/
+
 # Python
 __pycache__/
 *.pyc
