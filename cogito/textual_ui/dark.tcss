@@ -103,7 +103,8 @@ IsTyping LoadingIndicator {
 ChatList {
   dock: left;
   height: 1fr;
-  width: 32;
+  width: 20%;
+  min-width: 28;
   background: $background 15%;
 }
 
