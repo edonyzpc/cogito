@@ -18,7 +18,7 @@ from cogito.textual_ui.screens import ChatScreenDark, ChatScreenLight
 from cogito.textual_ui.widgets.footer import CommandFooter, Command, Field
 
 
-class GPTextual(App):
+class Cogito(App):
     def __init__(self, context: Optional[AppContext] = None) -> None:
         super().__init__()
         app_config = AppConfig.get_instance()
@@ -72,7 +72,7 @@ class GPTextual(App):
 
 
 def run():
-    app = GPTextual()
+    app = Cogito()
     app.run()
 
 

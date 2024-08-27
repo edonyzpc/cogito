@@ -52,8 +52,6 @@ def ensure_list(x):
     return x
 
 
-# conversation_path = Path.home() / (".gptextual") / "conversations"
-# export_path = Path.home() / (".gptextual") / "exports"
 conversation_path = Path.cwd() / ("bin") / "conversations"
 export_path = Path.cwd() / ("bin") / "exports"
 MESSAGE_COLUMNS = SimpleNamespace(

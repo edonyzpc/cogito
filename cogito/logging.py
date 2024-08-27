@@ -115,7 +115,6 @@ class QueueHandler(logging.handlers.QueueHandler):
         self.listener.stop()
 
 
-# log_path = Path.home() / ".gptextual" / "logging"
 log_path = Path.cwd() / "bin" / "logging"
 
 
