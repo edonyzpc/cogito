@@ -5,12 +5,16 @@ from langchain.schema import BaseMessage, AIMessage
 
 import pyperclip
 
-from rich.console import RenderableType
-from rich.markdown import Markdown
+from rich.console import Console, ConsoleOptions, RenderableType, RenderResult
+from rich.markdown import Markdown, TextElement, MarkdownContext
+from rich.panel import Panel
+from rich.box import HEAVY
+from rich.text import Text
 from textual.binding import Binding
 from textual.geometry import Size
 from textual.widget import Widget
 from textual.containers import Container
+from markdown_it.token import Token
 
 from cogito.textual_ui.screens.message_info_modal import MessageInfo
 from cogito.utils import format_timestamp
@@ -100,10 +104,29 @@ class Chatbox(Widget, can_focus=True):
 
     @property
     def markdown(self) -> Markdown:
-        return Markdown(self.message.content or "")
+        return Markdown(self.message.content or "", justify="left")
 
     def render(self) -> RenderableType:
+        self.markdown.elements["heading_open"] = MyHeading
         return self.markdown
+
+    def customized_rich_console(
+        self, console: Console, options: ConsoleOptions
+    ) -> RenderResult:
+        text = self.text
+        text.justify = "left"
+        if self.tag == "h1":
+            # Draw a border around h1s
+            yield Panel(
+                text,
+                box=HEAVY,
+                style="markdown.h1.border",
+            )
+        else:
+            # Styled text for h2 and beyond
+            if self.tag == "h2":
+                yield Text("")
+            yield text
 
     def get_content_width(self, container: Size, viewport: Size) -> int:
         # Naive approach. Can sometimes look strange, but works well enough.
@@ -119,3 +142,38 @@ class Chatbox(Widget, can_focus=True):
         if not isinstance(m, BaseMessage):
             raise ValueError("Message must be a BaseMessage instance")
         self._message = m
+
+
+class MyHeading(TextElement):
+    """A heading."""
+
+    @classmethod
+    def create(cls, markdown: "Markdown", token: Token) -> "MyHeading":
+        return cls(token.tag)
+
+    def on_enter(self, context: "MarkdownContext") -> None:
+        self.text = Text()
+        context.enter_style(self.style_name)
+
+    def __init__(self, tag: str) -> None:
+        self.tag = tag
+        self.style_name = f"markdown.{tag}"
+        super().__init__()
+
+    def __rich_console__(
+        self, console: Console, options: ConsoleOptions
+    ) -> RenderResult:
+        text = self.text
+        text.justify = "left"
+        if self.tag == "h1":
+            # Draw a border around h1s
+            yield Panel(
+                text,
+                box=HEAVY,
+                style="markdown.h1.border",
+            )
+        else:
+            # Styled text for h2 and beyond
+            if self.tag == "h2":
+                yield Text("")
+            yield text
