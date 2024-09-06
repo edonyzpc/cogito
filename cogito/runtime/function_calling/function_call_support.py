@@ -9,7 +9,13 @@ from langchain_core.utils.function_calling import (
     convert_to_openai_function,
     convert_to_openai_tool,
 )
-from langchain_core.messages import AIMessage, FunctionMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    FunctionMessage,
+    ToolMessage,
+    ToolMessageChunk,
+)
+from langchain_community.chat_models.tongyi import convert_message_to_dict
 
 from cogito.config.app_config import APIProviderConfig, AppConfig
 from cogito.logging import logger
@@ -22,6 +28,7 @@ _FUNCTIONS_BY_NAME = {}
 class FunctionCallSupport(str, Enum):
     OPENAI_TOOL = "openai_tool"  # new parallel function calling API
     OPENAI_FUNCTION = "openai_function"  # old singular function call API
+    QWEN_TOOL = "qwen_tool"  # qwen tool calling API
 
     @staticmethod
     def fromStr(name: str) -> FunctionCallSupport:
@@ -29,6 +36,8 @@ class FunctionCallSupport(str, Enum):
             return FunctionCallSupport.OPENAI_TOOL
         elif name == FunctionCallSupport.OPENAI_FUNCTION:
             return FunctionCallSupport.OPENAI_FUNCTION
+        elif name == FunctionCallSupport.QWEN_TOOL:
+            return FunctionCallSupport.QWEN_TOOL
 
         return None
 
@@ -67,6 +76,43 @@ class FunctionCallSupport(str, Enum):
             return await self._execute_openai_function(message)
         if self == FunctionCallSupport.OPENAI_TOOL:
             return await self._execute_openai_tool(message)
+        if self == FunctionCallSupport.QWEN_TOOL:
+            return await self._execute_qwen_tool(message)
+
+    async def _execute_qwen_tool(self, message: AIMessage) -> List[ToolMessage]:
+        tool_calls = message.additional_kwargs.get("tool_calls", None)
+        if tool_calls:
+            calls = ToolCalls(calls=tool_calls)
+            results = []
+            for call in calls.calls:
+                fname = call.function.name
+                func = get_function(fname)
+                if func:
+                    try:
+                        result = func(**call.function.arguments)
+                        if iscoroutine(result):
+                            result = await result
+
+                        tool_message = ToolMessage(
+                            tool_call_id=call.id, content=str(result)
+                        )
+                        tool_message_dict = convert_message_to_dict(tool_message)
+                        tool_message_dict["additional_kwargs"] = {
+                            # "id": message.additional_kwargs.get("id", None)
+                        }
+                        logger().info(f"111111111 message: {tool_message_dict}")
+                        results.append(tool_message_dict)
+                    except Exception as ex:
+                        logger().error(
+                            f"There was an error executing qwen tool function {fname}: {ex}"
+                        )
+                        results.append(
+                            ToolMessage(
+                                tool_call_id=call.id,
+                                content=f"There was an error executing qwen tool function {fname}: {ex}. Try to fix the error or continue without it.",
+                            )
+                        )
+            return results
 
     async def _execute_openai_tool(self, message: AIMessage) -> List[ToolMessage]:
         tool_calls = message.additional_kwargs.get("tool_calls", None)
@@ -122,6 +168,8 @@ class FunctionCallSupport(str, Enum):
             return convert_to_openai_function
         elif self == FunctionCallSupport.OPENAI_TOOL:
             return convert_to_openai_tool
+        elif self == FunctionCallSupport.QWEN_TOOL:
+            return convert_to_openai_tool
 
         return None
 
@@ -144,6 +192,8 @@ class FunctionCallSupport(str, Enum):
                 return {"functions": definitions, "function_call": "auto"}
             elif self == FunctionCallSupport.OPENAI_TOOL:
                 return {"tools": definitions, "tool_choice": "auto"}
+            elif self == FunctionCallSupport.QWEN_TOOL:
+                return {"tools": definitions, "tool_choice": "auto"}
 
         return {}
 
@@ -156,12 +206,12 @@ _DEFAULT_FUNCTION_CALL_SUPPORT = {
         "gpt-4,gpt-4-turbo,gpt-35-turbo,gpt-35-turbo-16k,gpt-4-32k": FunctionCallSupport.OPENAI_FUNCTION
     },
     "openai": {"*": FunctionCallSupport.OPENAI_TOOL},
-    "qwen": {"*": FunctionCallSupport.OPENAI_TOOL},
+    "qwen": {"qwen-max": FunctionCallSupport.QWEN_TOOL},
 }
 
 
 def load_function_entry_points():
-    for entry_point in pkg_resources.iter_entry_points("cogito_function"):
+    for entry_point in pkg_resources.iter_entry_points("mentis_function"):
         # Just loading the entry point is enough if each function
         # is decorated with @register_for_function_calling below
         entry_point.load()
@@ -179,3 +229,36 @@ def register_for_function_calling(func):
 def get_function_config(func):
     fname = func if isinstance(func, str) else func.__name__
     return AppConfig.get_instance().functions.get(fname, None)
+
+
+# qwen tool call parameter and response
+"""
+additional_kwargs = {
+    'tool_calls': 
+        [
+            {'function': {
+                'name': 'multiply',
+                'arguments': '{"first_int": 5, "second_int": 42}'},
+                'id': '',
+                'type': 'function'
+            }
+        ]
+}
+
+response_metadata = {
+    'model_name': 'qwen-turbo',
+    'finish_reason': 'tool_calls',
+    'request_id': '4acf0e36-44af-987a-a0c0-8b5c5eaa1a8b',
+    'token_usage': {
+        'input_tokens': 200,
+        'output_tokens': 25,
+        'total_tokens': 225}
+    }
+
+tool_calls=[
+    {
+        'name': 'multiply',
+        'args': {'first_int': 5, 'second_int': 42}, 'id': ''
+    }
+]
+"""

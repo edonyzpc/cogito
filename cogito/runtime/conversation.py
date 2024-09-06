@@ -5,10 +5,12 @@ import threading
 import logging
 from collections import deque
 from types import SimpleNamespace
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 import json
 from typing import List
+import dashscope.api_entities
+import dashscope.api_entities.dashscope_response
 import polars as pl
 from http import HTTPStatus
 
@@ -23,6 +25,12 @@ from langchain_core.messages import (
 )
 from langchain_core.outputs import ChatGenerationChunk
 from langchain_core.language_models import BaseLanguageModel
+from langchain_community.chat_models.tongyi import convert_dict_to_message
+
+try:
+    from langchain_community.chat_models.tongyi import ChatTongyi
+except ImportError:
+    ChatTongyi = None
 
 import dashscope
 
@@ -35,14 +43,14 @@ from cogito.runtime.langchain.schema import (
 from cogito.runtime.function_calling import FunctionCallSupport
 from cogito.runtime.models import ModelRegistry, ChatModel
 from cogito.logging import logger
-from cogito.config.app_config import AppConfig
+from cogito.config import AppConfig
 
 
 @dataclass
 class StreamingMessage:
     message: BaseMessage = None
     additional_kwargs: dict = field(
-        default_factory=lambda: {"timestamp": datetime.utcnow().timestamp()}
+        default_factory=lambda: {"timestamp": datetime.now(timezone.utc).timestamp()}
     )
 
 
@@ -188,17 +196,30 @@ class Conversation:
             response = StreamingMessage()
             self.append(response)
             chunks = 0
-            async for chunk in self._stream_llm(
-                self._messages_for_context_size(self.messages)[:-1]
-            ):
-                response.message = (
-                    chunk if response.message is None else response.message + chunk
-                )
+            if self.model.api_provider == "qwen":
+                async for chunk in self._invoke_llm(
+                    self._messages_for_context_size(self.messages)[:-1]
+                ):
+                    response.message = (
+                        chunk if response.message is None else response.message + chunk
+                    )
 
-                if self.on_stream_chunk:
-                    await self.on_stream_chunk(response, chunks)
-                chunks += 1
-                yield response
+                    if self.on_stream_chunk:
+                        await self.on_stream_chunk(response, chunks)
+                    chunks += 1
+                    yield response
+            else:
+                async for chunk in self._stream_llm(
+                    self._messages_for_context_size(self.messages)[:-1]
+                ):
+                    response.message = (
+                        chunk if response.message is None else response.message + chunk
+                    )
+
+                    if self.on_stream_chunk:
+                        await self.on_stream_chunk(response, chunks)
+                    chunks += 1
+                    yield response
 
             self.messages.pop()
             response = response.message
@@ -215,11 +236,17 @@ class Conversation:
             )
 
             if function_results:
+                if self.model.api_provider == "qwen":
+                    function_results = [
+                        convert_dict_to_message(result) for result in function_results
+                    ]
                 async for resp in self._progress_llm(function_results, autosave=False):
                     response = resp
                     yield response
             else:
-                response.additional_kwargs["timestamp"] = datetime.utcnow().timestamp()
+                response.additional_kwargs["timestamp"] = datetime.now(
+                    timezone.utc
+                ).timestamp()
                 if self.on_stream_chunk:
                     await self.on_stream_chunk(response, chunks)
                 yield response
@@ -240,8 +267,6 @@ class Conversation:
             if function_calling:
                 function_kwargs = function_calling.get_kwargs()
 
-            logger().info(function_kwargs)
-            logger().info(function_calling)
             if logger().getEffectiveLevel() <= logging.INFO:
                 log_msg = messages[-3:] if len(messages) >= 3 else [*messages]
                 log_msg.reverse()
@@ -267,9 +292,11 @@ class Conversation:
                     return chunk
                 elif isinstance(chunk, ChatGenerationChunk):
                     return chunk.message
+                elif isinstance(chunk, tuple):
+                    return AIMessageChunk(content=str(chunk[1]), type="AIMessageChunk")
 
                 raise ValueError(
-                    f"Cannot get message from unknown chunk type {chunk.__class__}"
+                    f"Cannot get message from unknown chunk type {chunk.__class__}, {chunk}"
                 )
 
             async for chunk in self.model.llm_model.astream(
@@ -279,6 +306,65 @@ class Conversation:
                     yield to_message(chunk)
                 except Exception as ex:
                     raise ex
+        except Exception as ex:
+            logger().error(f"Error during LLM streaming: {ex}")
+            yield AIMessageChunk(
+                content=f"There was an error streaming the LLM response, {ex}"
+            )
+
+    async def _invoke_llm(self, messages):
+        try:
+            function_kwargs = {}
+            function_calling = FunctionCallSupport.forModelName(
+                model_name=self.model.name, api_provider=self.model.api_provider
+            )
+            if function_calling:
+                function_kwargs = function_calling.get_kwargs()
+
+            if logger().getEffectiveLevel() <= logging.INFO:
+                log_msg = messages[-3:] if len(messages) >= 3 else [*messages]
+                log_msg.reverse()
+                logger().info(
+                    f"Invoking model {self.model.name}@{self.model.api_provider}",
+                    extra={
+                        "last_3_messages": [
+                            {
+                                "type": m.type,
+                                "content": m.content,
+                                "kwargs": m.additional_kwargs,
+                            }
+                            for m in log_msg
+                        ],
+                        "functions": function_kwargs,
+                    },
+                )
+
+            def to_message(chunk):
+                if isinstance(chunk, str):
+                    return AIMessageChunk(content=chunk)
+                if isinstance(chunk, BaseMessage):
+                    return chunk
+                elif isinstance(chunk, ChatGenerationChunk):
+                    return chunk.message
+                elif isinstance(chunk, tuple):
+                    return AIMessageChunk(content=str(chunk[1]), type="AIMessageChunk")
+
+                raise ValueError(
+                    f"Cannot get message from unknown chunk type {chunk.__class__}, {chunk}"
+                )
+
+            # if isinstance(self.model.llm_model, ChatTongyi):
+            #    cfg = AppConfig.get_instance().api_config.qwen
+            #    kwargs = {"temperature": 0.6}
+            #    kwargs["max_tokens"] = self.model.default_max_tokens
+            #    model = ChatTongyi(
+            #        model=self.model.name, dashscope_api_key=cfg.api_key, **kwargs
+            #    )
+            #    chunk = await model.ainvoke(messages, **function_kwargs)
+            chunk = await self.model.llm_model.ainvoke(messages, **function_kwargs)
+            logger().info(f"??invoke chunk: {chunk}")
+            yield to_message(chunk)
+
         except Exception as ex:
             logger().error(f"Error during LLM streaming: {ex}")
             yield AIMessageChunk(
@@ -563,7 +649,7 @@ class Conversation:
             raise ValueError("No model provided for conversation")
 
         _system_message = f"""
-The current UTC datetime is {datetime.utcnow()}.
+The current UTC datetime is {datetime.now(timezone.utc)}.
 Do not escape markdown as codeblocks using '`' chars.Messages will be rendered as markdown by default!
 """
         if system_message is not None:
@@ -572,7 +658,7 @@ Do not escape markdown as codeblocks using '`' chars.Messages will be rendered a
             id=ShortUUID().random(20),
             model=model,
             title=title,
-            create_timestamp=datetime.utcnow().timestamp(),
+            create_timestamp=datetime.now(timezone.utc).timestamp(),
             in_memory=in_memory,
         )
         conv.append(SystemMessage(content=_system_message))
@@ -592,9 +678,12 @@ Do not escape markdown as codeblocks using '`' chars.Messages will be rendered a
 
         try:
             if model_name.startswith("qwen"):
-                return [
-                    Conversation.__get_token_num_qwen(model_name, m) for m in messages
+                tokens = [
+                    Conversation.__get_qwen_token_num_from_message(model_name, m)
+                    for m in messages
                 ]
+                logger().info(tokens)
+                return tokens
             return [model.get_num_tokens_from_messages(messages=[m]) for m in messages]
         except Exception as ex:
             logger().error(
@@ -604,15 +693,18 @@ Do not escape markdown as codeblocks using '`' chars.Messages will be rendered a
             return [int(len(m.content) / 3.5) for m in messages]
 
     @staticmethod
-    def __get_token_num_qwen(model_name: str, messages: BaseMessage) -> int:
-
+    def __get_qwen_token_num_from_message(model_name: str, message: BaseMessage) -> int:
+        dashscope_message = dashscope.api_entities.dashscope_response.Message(
+            role="user",
+            content=message.content,
+        )
         response = dashscope.Tokenization.call(
             model=model_name,
-            messages=messages.json(),
+            messages=[dashscope_message],
             api_key=AppConfig.get_instance().api_config.qwen.api_key,
         )
         if response.status_code == HTTPStatus.OK:
-            return len(response.output.token_ids)
+            return response["usage"]["input_tokens"]
         else:
             return 0
 
