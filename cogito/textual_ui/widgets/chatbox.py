@@ -10,6 +10,7 @@ from rich.markdown import Markdown, TextElement, MarkdownContext
 from rich.panel import Panel
 from rich.box import HEAVY
 from rich.text import Text
+from rich.style import Style
 from textual.binding import Binding
 from textual.geometry import Size
 from textual.widget import Widget
@@ -176,4 +177,13 @@ class MyHeading(TextElement):
             # Styled text for h2 and beyond
             if self.tag == "h2":
                 yield Text("")
+
+            if self.tag == "h3":
+                color = "green"
+            elif self.tag == "h4":
+                color = "blue"
+            else:
+                color = "orange"
+            customize_style = Style(bold=True, color=color)
+            text.style = customize_style
             yield text
