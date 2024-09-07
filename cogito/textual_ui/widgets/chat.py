@@ -72,7 +72,7 @@ class ChatInputArea(TextArea):
 class Chat(Widget):
     DEFAULT_CSS = """
     .multiline {
-      height: 8;
+      height: 6;
     } 
     .singleline {
       height: 3;
@@ -89,7 +89,7 @@ class Chat(Widget):
         self.chat_container: ScrollableContainer | None = None
         self.chat_options: ModelSelect = ModelSelect()
         self.chat_id = None
-        self.input_area = ChatInputArea(self, id="chat-input", classes="singleline")
+        self.input_area = ChatInputArea(self, id="chat-input", classes="multiline")
         self.responding_indicator = IsTyping()
         self.responding_indicator.display = False
         self.multiline = False
@@ -132,12 +132,15 @@ class Chat(Widget):
         def update_height(height):
             s = "singleline"
             m = "multiline"
-            multiline = height > 1
-            if multiline != self.multiline:
-                self.multiline = multiline
-                area.set_class(multiline, m)
-                area.set_class(not multiline, s)
-                self.refresh(layout=True)
+            area.set_class(True, m)
+            area.set_class(False, s)
+            self.refresh(layout=True)
+            # multiline = height > 1
+            # if multiline != self.multiline:
+            #     self.multiline = multiline
+            #     area.set_class(multiline, m)
+            #     area.set_class(not multiline, s)
+            #     self.refresh(layout=True)
 
         height = self.input_area.get_content_height(None, None, None)
         update_height(height)
@@ -168,8 +171,8 @@ class Chat(Widget):
         chat_header = self.query_one(ChatHeader)
         chat_header.title = title or (chat and chat.short_preview) or "New Chat..."
         chat_header.model_name = (
-            (model_name and api_provider and f"{model_name}@{api_provider}")
-            or (chat and f"{chat.model.name}@{chat.model.api_provider}")
+            (chat and f"{chat.model.name}@{chat.model.api_provider}")
+            or (model_name and api_provider and f"{model_name}@{api_provider}")
             or ""
         )
 
@@ -180,7 +183,7 @@ class Chat(Widget):
             ] = box
         containers = [
             ChatboxContainer(
-                box, classes=("assistant-message" if box.is_ai_message else None)
+                box, classes=("assistant-message" if box.is_ai_message else "user-message")
             )
             for box in boxes
         ]

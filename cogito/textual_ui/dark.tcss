@@ -172,6 +172,10 @@ ChatboxContainer.assistant-message {
   padding-right: 0;
 }
 
+ChatboxContainer.user-message {
+  min-width: 40%;
+}
+
 Chatbox {
   color: $text;
   background: $main 50%;
@@ -191,13 +195,15 @@ Chatbox.assistant-message {
   background: $panel 80%;
 }
 
+Chatbox.user-message {
+  min-width: 40%;
+}
+
 #model-select-label {
   margin-left: 2;
   margin-bottom: 1;
   color: $text;
 }
-
-
 
 ChatOptions {
   height: auto;

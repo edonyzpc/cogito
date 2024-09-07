@@ -22,11 +22,11 @@ from cogito.textual_ui.widgets.search import Search
 
 class ChatScreen(Screen):
     BINDINGS = [
-        Binding("q", "quit", "Quit App", key_display="q"),
-        Binding("ctrl+n", action="new_chat", description="New Chat", key_display="^n"),
+        Binding("q", "quit", "Quit", key_display="q"),
+        Binding("ctrl+n", action="new_chat", description="New", key_display="^n"),
         Binding("ctrl+f", action="search", description="Search", key_display="^f"),
         Binding(
-            "ctrl+l", action="open_log", description="Show Log File", key_display="^l"
+            "ctrl+l", action="open_log", description="Log", key_display="^l"
         ),
     ]
 
@@ -99,7 +99,8 @@ class ChatScreen(Screen):
         except NoMatches:
             log.error("Couldn't find ConversationHeader to update model name.")
         else:
-            conversation_header.model_name = f"{model.name}@{model.api_provider}"
+            if self.chat.chat_options.display:
+                conversation_header.model_name = f"{model.name}@{model.api_provider}"
 
     async def action_new_chat(self) -> None:
         chat = self.query_one(Chat)

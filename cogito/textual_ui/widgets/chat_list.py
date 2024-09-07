@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass
 
 import humanize
@@ -32,7 +32,7 @@ class ChatListItemRenderable:
         self, console: Console, options: ConsoleOptions
     ) -> RenderResult:
         chat = ConversationManager.get_conversation(self.chat_id)
-        delta = datetime.utcnow().astimezone() - chat.update_time
+        delta = datetime.now(timezone.utc) - chat.update_time
         subtitle = humanize.naturaltime(delta)
         yield Padding(
             Text.assemble(
@@ -67,9 +67,9 @@ class ChatList(Widget):
             description="Focus Input",
             key_display="i",
         ),
-        Binding("r", "rename_conversation", "Rename Chat", key_display="r"),
-        Binding("d", "delete_conversation", "Delete Chat", key_display="d"),
-        Binding("e", "export", "Export To Markdown", key_display="e"),
+        Binding("r", "rename_conversation", "Rename", key_display="r"),
+        Binding("d", "delete_conversation", "Delete", key_display="d"),
+        Binding("e", "export", "Export Markdown", key_display="e"),
     ]
     COMPONENT_CLASSES = {"app-title", "app-subtitle"}
 
@@ -93,7 +93,7 @@ class ChatList(Widget):
             )
             yield Static(
                 Text(
-                    "AI assistant in Obsidian.",
+                    "Obsidian AI assistant",
                     style=self.get_component_rich_style("app-subtitle"),
                 )
             )

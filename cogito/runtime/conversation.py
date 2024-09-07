@@ -362,7 +362,6 @@ class Conversation:
             #    )
             #    chunk = await model.ainvoke(messages, **function_kwargs)
             chunk = await self.model.llm_model.ainvoke(messages, **function_kwargs)
-            logger().info(f"??invoke chunk: {chunk}")
             yield to_message(chunk)
 
         except Exception as ex:
@@ -648,10 +647,7 @@ class Conversation:
         if model is None:
             raise ValueError("No model provided for conversation")
 
-        _system_message = f"""
-The current UTC datetime is {datetime.now(timezone.utc)}.
-Do not escape markdown as codeblocks using '`' chars.Messages will be rendered as markdown by default!
-"""
+        _system_message = f""
         if system_message is not None:
             _system_message += f"{system_message}\n{_system_message}"
         conv = cls(
@@ -682,7 +678,6 @@ Do not escape markdown as codeblocks using '`' chars.Messages will be rendered a
                     Conversation.__get_qwen_token_num_from_message(model_name, m)
                     for m in messages
                 ]
-                logger().info(tokens)
                 return tokens
             return [model.get_num_tokens_from_messages(messages=[m]) for m in messages]
         except Exception as ex:

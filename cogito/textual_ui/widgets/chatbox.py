@@ -43,7 +43,7 @@ class Chatbox(Widget, can_focus=True):
             key="d", action="details", description="Message details", key_display="d"
         ),
         Binding(key="c", action="copy", description="Copy Message", key_display="c"),
-        Binding(key="`", action="copy_code", description="Copy Code Blocks"),
+        Binding(key="`", action="copy_code", description="Copy Code"),
     ]
 
     def __init__(
@@ -77,6 +77,8 @@ class Chatbox(Widget, can_focus=True):
     def on_mount(self) -> None:
         if self.message.type.lower().startswith("ai"):
             self.add_class("assistant-message")
+        else:
+            self.add_class("user-message")
 
     def get_code_blocks(self, markdown_string):
         pattern = r"```(.*?)\n(.*?)```"
