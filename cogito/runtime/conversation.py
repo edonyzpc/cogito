@@ -392,6 +392,9 @@ class Conversation:
 
         system_message = messages[0] if isinstance(messages[0], SystemMessage) else None
         length_available = self.model.context_window
+        if self.model.api_provider == 'qwen':
+                length_available = 2000
+
         if system_message:
             length_available -= self._get_message_length(system_message)
             if length_available < 0:
