@@ -40,6 +40,8 @@ class ChatModel:
             kwargs = {"temperature": 0.6}
             if self.api_provider == APIProvider.GOOGLE:
                 kwargs["max_output_tokens"] = self.default_max_tokens
+            elif self.api_provider == APIProvider.QWEN:
+                kwargs["max_tokens"] = 6000
             else:
                 kwargs["max_tokens"] = self.default_max_tokens
 

@@ -169,9 +169,9 @@ class GoogleConfig(APIProviderConfig):
 class QwenConfig(APIProviderConfig):
     api_key: str
     models: Optional[Dict[str, ModelConfig | None]] = {
-        "qwen-max": ModelConfig(context_window=200000),
-        "qwen-plus": ModelConfig(context_window=200000),
-        "qwen-turbo": ModelConfig(context_window=200000),
+        "qwen-max": ModelConfig(context_window=6000),
+        "qwen-plus": ModelConfig(context_window=6000),
+        "qwen-turbo": ModelConfig(context_window=6000),
     }
 
     def create_model_instance(self, model_name: str, **kwargs) -> BaseLanguageModel:
