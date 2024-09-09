@@ -25,9 +25,8 @@ class ChatScreen(Screen):
         Binding("q", "quit", "Quit", key_display="q"),
         Binding("ctrl+n", action="new_chat", description="New", key_display="^n"),
         Binding("ctrl+f", action="search", description="Search", key_display="^f"),
-        Binding(
-            "ctrl+l", action="open_log", description="Log", key_display="^l"
-        ),
+        Binding("ctrl+l", action="open_log", description="Log", key_display="^l"),
+        Binding("ctrl+b", action="hide_chatlist", description="Hide", key_display="^b"),
     ]
 
     def __init__(self):
@@ -109,6 +108,15 @@ class ChatScreen(Screen):
 
     def action_open_log(self) -> None:
         self.app.push_screen(LogScreen())
+
+    def action_hide_chatlist(self) -> None:
+        chat_list = self.query_one(ChatList)
+        if not chat_list.display:
+            # recover hided chat list
+            chat_list.display = True
+            return
+        chat_list.display = False
+        self.refresh(layout=True)
 
 
 class ChatScreenDark(ChatScreen):
